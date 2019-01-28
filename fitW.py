@@ -19,6 +19,7 @@ fBinWidth =5
 fDir="/afs/cern.ch/user/c/cmantill/public/forSangEon/sklimWtag"
 fOutput="w.root"
 
+# files and names
 fFiles = {'data': 'Data',
           'wlnu_mc' : 'WJets',
           'wlnu_data': 'WJets',
@@ -35,6 +36,7 @@ fFiles = {'data': 'Data',
           'mc': 'PseudoData'
           }
 
+# pdfs
 fPDFs = {
          'wlnu_mc':       'Exp_mc',
          'wlnu_data':     'Exp_data',
@@ -44,12 +46,12 @@ fPDFs = {
          'tt_realW_mc':   'DoubleCB',
          'tt_fakeW_data': 'ErfExp_tt_data',
          'tt_realW_data': 'DoubleCB'}
-
 fPDFs['tt_signal_mc'] = fPDFs['tt_realW_mc']
 fPDFs['tt_signal_data'] = fPDFs['tt_realW_data']
 fPDFs['tt_bkg_mc'] = fPDFs['tt_fakeW_mc']
 fPDFs['tt_bkg_data'] = fPDFs['tt_fakeW_data']
 
+# floating params
 fFloating = {}
 fFloating['mc'] = ['mean_DoubleCB_tt_realW_mc_',
                    'sigma_DoubleCB_tt_realW_mc_',
@@ -90,6 +92,7 @@ def parser():
     (options,args) = parser.parse_args()
     return options
 
+# main class
 class WPeak():
     def __init__(self,options):
         self._lW      = r.RooWorkspace("w","w")
@@ -99,19 +102,16 @@ class WPeak():
         self._lMSD    = r.RooRealVar(fVar,fVar,self._lMSD_lo,self._lMSD_hi)
         self._lMSD.setBins(fNBins)
         getattr(self._lW,"import")(self._lMSD)
-
         self._lPt     = r.RooRealVar(fPt,fPt,0,2000)
         self._lWeight = r.RooRealVar(fWeight,fWeight,-1e+25,1e+25)
-        
         self._bFit    = options.fits
-
+        
         self._lPDatas = {}
         self._lHPdfs  = {}
         self._lNPdfs  = {}
         self._lModels = {}
         self._lConstraints = {}
         self._lScaleNumber = {}
-
         self._TTsf = {};
 
         # get dataset for individual processes except for mc and tt_bkg(fakew), tt_signal(realW)
@@ -119,8 +119,10 @@ class WPeak():
             if iLabel == "mc" or  "bkg" in iLabel or "signal" in iLabel: continue
             for Pt_it in range(len(fPt_bins)-1):
                 pFile = fDir+fTag+"/"+iFile+"_"+fTag+".root"
+                # pt cut and label
                 fCut = "(Puppijet0_pt>" + str(fPt_bins[Pt_it]) + " && Puppijet0_pt<" + str(fPt_bins[Pt_it+1]) + ")"
                 Pt_label = "pT_" + str(fPt_bins[Pt_it]) + '_' + str(fPt_bins[Pt_it+1])
+                # build dataset for each pt category
                 for Cat_it in fCats:
                     self._TTsf[Pt_label+ '_' + Cat_it] = 1
                     print 'preparing sample %s in pT bin[%s,%s] and %s category'%(iLabel,fPt_bins[Pt_it],fPt_bins[Pt_it+1],Cat_it)
@@ -131,11 +133,12 @@ class WPeak():
                         self._lPDatas[pName] = self.getDataset(iLabel,pName,Pt_label+ '_' + Cat_it,pFile,pCut,True)
                     else:
                         self._lPDatas[pName] = self.getDataset(iLabel,pName,Pt_label+ '_' + Cat_it,pFile,pCut,False)
+                    # fit individual mc pdfs (tt,st,wjets?)
                     if iLabel != "data" and self._bFit:
                         self._lConstraints[pName] = self.fitSingleMC(pName,fPDFs[iLabel])
-                    print self._lW.data(pName+"_D").sumEntries()
 
-        # get normalization SF for tt for pass and fail
+        # get normalization SF for tt for pass and fail cats
+        # sf_(cat)_pTbin = (data-st-wjets)/tt with cat=[pass,fail]
         for Pt_it in range(len(fPt_bins)-1):
             Pt_label = "pT_" + str(fPt_bins[Pt_it]) + '_' + str(fPt_bins[Pt_it+1])
             for Cat_it in fCats:
@@ -143,7 +146,6 @@ class WPeak():
         
         # get dataset for mc pass and fail and scale it by tt_sf norm
         iLabel = "mc"
-        print 'SF!! ',iLabel
         for Pt_it in range(len(fPt_bins)-1):
             pFile = fDir+fTag+"/"+fFiles[iLabel]+"_"+fTag+".root"
             Pt_label = "pT_" + str(fPt_bins[Pt_it]) + '_' + str(fPt_bins[Pt_it+1])
@@ -152,9 +154,8 @@ class WPeak():
                 pName = iLabel + '_' + Pt_label + '_' + Cat_it
                 pCut = "(%s&&%s)"%(fCut,fWCut[Cat_it])
                 self._lPDatas[pName] = self.getDataset(iLabel,pName,Pt_label+ '_' + Cat_it,pFile,pCut,True)
-                print self._lW.data(pName+"_D").sumEntries()
-
-        print self._lPDatas
+                
+        # print workspace
         self._lW.Print()
         
     # get dataset for each process from tree
@@ -191,7 +192,6 @@ class WPeak():
                 self._lMSD.setVal(lMass)
                 lData.add(r.RooArgSet(self._lMSD), lWeight)
         getattr(self._lW,'import')(lData,r.RooFit.RecycleConflictNodes())
-        lData.Print()
         lFile.Close()
         return self._lW.data(iName+"_D")
                      
@@ -210,7 +210,7 @@ class WPeak():
 
     # getModel
     def getModel(self, iLabel):
-        print 'getting model for ', iLabel
+        print '---- Getting model for ', iLabel
         lModel    = self._lW.pdf("model_"+iLabel)
         lModel.Print()
         return lModel
@@ -228,6 +228,7 @@ class WPeak():
 
     # get TT normalization SF for pt label
     def getTTSF(self,iPtLabel,Cat_it):
+        print '---- Getting TT SF for ', iPtLabel, Cat_it
         nData = nTT = nMinorBKG = 0;
         for Data_it in self._lPDatas:
             if Cat_it not in Data_it: continue
@@ -236,26 +237,19 @@ class WPeak():
             print Data_it,nEntries
             if Data_it == "data_"+iPtLabel+"_"+Cat_it:
                 nData += nEntries
-                print 'adding to data'
             if "_mc" in Data_it:
                 if "realW" in Data_it or "fakeW" in Data_it:
                     nTT += nEntries
-                    print 'adding to tt'
                 else:
                     nMinorBKG += nEntries
-                    print 'adding to bkg'
-        print 'cat ', Cat_it, ' data ',nData,' tt ',nTT,' bkg ',nMinorBKG
         ttScalefactor = (nData-nMinorBKG)/nTT
         #ttScalefactor = 1
         scalefactor = r.RooRealVar("tt_scalefactor_"+Cat_it,"tt_scalefactor_"+Cat_it,ttScalefactor)
         getattr(self._lW,'import')(scalefactor,r.RooFit.RecycleConflictNodes())
         return scalefactor.getVal()
-        #return 1
 
     # get Wtag SFs
     def getWtagSFs(self,iPtLabel,iModelLabel,iTTLabel):
-        print 'ttlabel ',iTTLabel
-        print 'pt ',iPtLabel
         # efficiency: realW tt evts:  pass / pass+fail
         # N2 sf = efficiency in data / efficiency in mc 
         # mass sf = mean in data / mean in mc
@@ -324,128 +318,40 @@ class WPeak():
             var = iter.Next()
         return lFloat,lConst
 
-    # fit mc and data
+    # fit data to mc model
     def fit(self):
         lVar   = self._lW.var(fVar);
-
         for Pt_it in range(len(fPt_bins)-1):
-            
+            pPtLabel = "pT_" + str(fPt_bins[Pt_it]) + "_" + str(fPt_bins[Pt_it+1])            
+
             # define categories
             pCats  = r.RooCategory("pCats"  ,"pCats")
             for Cat_it in fCats:
                 pCats.defineType(Cat_it)
 
-            pPtLabel = "pT_" + str(fPt_bins[Pt_it]) + "_" + str(fPt_bins[Pt_it+1])
-
-            # get models
-            for Cat_it in fCats:
-                if not options.individual: continue
-
-                print 'processing combined fit for pT bin[%s,%s] and %s category'%(fPt_bins[Pt_it],fPt_bins[Pt_it+1],Cat_it)
-                print 'and with pass sf: %.3f and fail sf: %.3f'%(self._lW.var("tt_scalefactor_pass").getVal(),self._lW.var("tt_scalefactor_fail").getVal())
-
-                pPtLabelCat = pPtLabel + "_"+Cat_it
-
-                lSData = self._lPDatas["data_"+pPtLabelCat]
-                lSMc   = self._lPDatas["mc_"+pPtLabelCat]
-                
-                pSamples = ['wlnu_mc','wlnu_data','st_mc','st_data','tt_fakeW_mc','tt_fakeW_data','tt_realW_mc','tt_realW_data']
-                for iLabel in pSamples:
-                    lLabel = iLabel + '_' + pPtLabelCat
-                    self._lHPdfs[lLabel] = self.histPdf(lLabel)
-                    self._lModels[lLabel] = self.getModel(lLabel)
-
-                # normalization for each category (e.g. pass ) fixed as:
-                # norm_ratio = (tt_realW+tt_fakeW)/(minorbkg 
-                norm_fakeW = self._lW.arg("number_tt_fakeW_mc_" + pPtLabelCat).getVal()
-                norm_realW = self._lW.arg("number_tt_realW_mc_" + pPtLabelCat).getVal()
-                norm_st    = self._lW.arg("number_st_mc_" + pPtLabelCat).getVal()
-                norm_wlnu  = self._lW.arg("number_wlnu_mc_" + pPtLabelCat).getVal()
-                norm_ratio = (norm_fakeW + norm_realW) / (norm_st + norm_wlnu)
-                print 'norm ratio: %s'%norm_ratio
-
-                # impose normalization constraint
-                # to mc
-                st_norm_mc = self._lW.arg("number_st_mc_"+pPtLabelCat)
-                wlnu_norm_mc = self._lW.arg("number_wlnu_mc_"+pPtLabelCat)
-                norm_ratio_mc = r.RooRealVar("norm_ratio_mc_"+pPtLabelCat,"norm_ratio_mc_"+pPtLabelCat,norm_ratio)
-                tt_norm_mc = r.RooFormulaVar("tt_norm_mc_"+pPtLabelCat,"(@0*(@1+@2))",r.RooArgList(norm_ratio_mc,wlnu_norm_mc,st_norm_mc))
-
-                # to data
-                st_norm_data = self._lW.arg("number_st_data_"+pPtLabelCat)
-                wlnu_norm_data = self._lW.arg("number_wlnu_data_"+pPtLabelCat)
-                norm_ratio_data = r.RooRealVar("norm_ratio_data_"+pPtLabelCat,"norm_ratio_data_"+pPtLabelCat,norm_ratio)
-                tt_norm_data = r.RooFormulaVar("tt_norm_data_"+pPtLabelCat,"(@0*(@1+@2))",r.RooArgList(norm_ratio_data,wlnu_norm_data,st_norm_data))
-
-                # fix variables from MC and only leave floating normalization, mean and sigma from TT
-                lFloat,lConst = self.fixParams()
-
-                # build mc and data total models
-                tt_model_mc       = r.RooAddPdf("model_mc_tt_"+pPtLabelCat,"model_mc_tt_"+pPtLabelCat,r.RooArgList(self._lW.pdf("model_tt_realW_mc_"+pPtLabelCat),self._lW.pdf("model_tt_fakeW_mc_"+pPtLabelCat)))
-                tt_model_mc_ext   = r.RooExtendPdf("ext_model_mc_tt_"+pPtLabelCat,"ext_model_mc_tt_"+pPtLabelCat,tt_model_mc,tt_norm_mc)
-                st_model_mc_ext   = r.RooExtendPdf("ext_model_mc_st_"+pPtLabelCat,"ext_model_mc_st_"+pPtLabelCat,self._lW.pdf("model_st_mc_"+pPtLabelCat),st_norm_mc)
-                wlnu_model_mc_ext = r.RooExtendPdf("ext_model_mc_wlnu_"+pPtLabelCat,"ext_model_mc_wlnu_"+pPtLabelCat,self._lW.pdf("model_wlnu_mc_"+pPtLabelCat),wlnu_norm_mc)
-
-                tt_model_data       = r.RooAddPdf("model_data_tt_"+pPtLabelCat,"model_data_tt_"+pPtLabelCat,r.RooArgList(self._lW.pdf("model_tt_realW_data_"+pPtLabelCat),self._lW.pdf("model_tt_fakeW_data_"+pPtLabelCat)))
-                tt_model_data_ext   = r.RooExtendPdf("ext_model_data_tt_"+pPtLabelCat,"ext_model_data_tt_"+pPtLabelCat,tt_model_data,tt_norm_data)
-                st_model_data_ext   = r.RooExtendPdf("ext_model_data_st_"+pPtLabelCat,"ext_model_data_st_"+pPtLabelCat,self._lW.pdf("model_st_data_"+pPtLabelCat),st_norm_data)
-                wlnu_model_data_ext = r.RooExtendPdf("ext_model_data_wlnu_"+pPtLabelCat,"ext_model_data_wlnu_"+pPtLabelCat,self._lW.pdf("model_wlnu_data_"+pPtLabelCat),wlnu_norm_data)
-
-                self._lModels['Mc_'+pPtLabelCat] = r.RooAddPdf(("model_mc_"+pPtLabelCat),("model_mc_"+pPtLabelCat),
-                                                               r.RooArgList(tt_model_mc_ext,st_model_mc_ext,wlnu_model_mc_ext))
-
-                self._lModels['Data_'+pPtLabelCat] = r.RooAddPdf(("model_data_"+pPtLabelCat),("model_data_"+pPtLabelCat),
-                                                                 r.RooArgList(tt_model_data_ext,st_model_data_ext,wlnu_model_data_ext))
-
-                getattr(self._lW,"import")(self._lModels["Mc_"+pPtLabelCat],r.RooFit.RecycleConflictNodes())
-                getattr(self._lW,"import")(self._lModels["Data_"+pPtLabelCat],r.RooFit.RecycleConflictNodes())
-
-                print 'Floating ',lFloat
-                print 'Fixed ',lConst 
-
-                # fit to data (cat)
-                print '-- fitting to data only'
-                pRooFitResult_Data = self._lModels['Data_'+pPtLabelCat].fitTo(lSData,r.RooFit.Strategy(1),r.RooFit.Save(1),r.RooFit.SumW2Error(r.kTRUE),r.RooFit.Minimizer("Minuit2"))
-                pRooFitResult_Data.Print()
-                lTagData = 'data_only_'+pPtLabelCat + '_ttmatched'
-                draw(lVar,lSData,[self._lModels['Data_'+pPtLabelCat]],pRooFitResult_Data,lTagData,fBinWidth)
-                x2 = self._lModels['Data_'+pPtLabelCat].getVariables()
-                print x2.Print("v")
-
-                # fit to mc (cat)
-                print '-- fitting to mc only'
-                pRooFitResult_Mc   = self._lModels['Mc_'+pPtLabelCat].fitTo(lSMc,r.RooFit.Strategy(1),r.RooFit.Save(1),r.RooFit.SumW2Error(r.kTRUE),r.RooFit.Minimizer("Minuit2"))
-                lTagMc = 'mc_only_'+pPtLabelCat + '_ttmatched'
-                draw(lVar,lSMc,[self._lModels['Mc_'+pPtLabelCat]],pRooFitResult_Mc,lTagMc,fBinWidth)
-                x1 = self._lModels['Mc_'+pPtLabelCat].getVariables()
-                print x1.Print("v")
-
-                # draw data and mc (for that cat)
-                lTagDataMc = "data_mc_"+pPtLabelCat
-                lTagDataMc += "_ttmatched"
-                params = {}
-                drawDataMc(lVar,lSData,[self._lModels['Data_'+pPtLabelCat]],lSMc,[self._lModels['Mc_'+pPtLabelCat]],pRooFitResult_Mc,pRooFitResult_Data,params,lTagDataMc,fBinWidth)
-
-
-            # link pass and fail for realW                                                                                                                                       
-            # tt_realw_pass = eff*(tt_realW_pass+tt_realW_fail)                                                                                                                    
+            # link pass and fail categories for realW
+            # tt_realw_pass = eff*(tt_realW_pass+tt_realW_fail) 
             # tt_realw_fail = (1-eff)*(tt_realW_pass+tt_realW_fail) 
             nrealW_pass = self._lW.var('number_tt_realW_mc_'+pPtLabel+"_pass").getVal()
             nrealW_fail = self._lW.var('number_tt_realW_mc_'+pPtLabel+"_fail").getVal()
             effS      = nrealW_pass/(nrealW_pass+nrealW_fail)
-            print "Real MC signal efficiency = " ,effS; print ""; 
+            print "Real MC signal efficiency = " ,effS; print "";
 
+            # perform fit to data and mc to that category
             for Cat_it in fCats:
                 print 'processing simult models for pT bin[%s,%s] and %s category'%(fPt_bins[Pt_it],fPt_bins[Pt_it+1],Cat_it)
                 pPtLabelCat = pPtLabel + "_"+Cat_it
 
+                # define normalizations and print ratio of tt/minorBKG
+                # so that tt_fakeW_mc = ratio * (st_mc+wlnu_mc) - tt_realW_mc
                 norm_fakeW = self._lW.arg("number_tt_fakeW_mc_" + pPtLabelCat).getVal()
                 norm_realW = self._lW.arg("number_tt_realW_mc_" + pPtLabelCat).getVal()
                 norm_st    = self._lW.arg("number_st_mc_" + pPtLabelCat).getVal()
                 norm_wlnu  = self._lW.arg("number_wlnu_mc_" + pPtLabelCat).getVal()
                 norm_ratio = (norm_fakeW + norm_realW) / (norm_st + norm_wlnu)
-                print 'norm ratio: %s'%norm_ratio
-                
+                print 'norm ratio TT/MINORBKG: %s'%norm_ratio
+
+                # get normalizations vars from model
                 st_norm_mc = self._lW.arg("number_st_mc_"+pPtLabelCat)
                 wlnu_norm_mc = self._lW.arg("number_wlnu_mc_"+pPtLabelCat)
                 norm_ratio_mc = r.RooRealVar("norm_ratio_mc_"+pPtLabelCat,"norm_ratio_mc_"+pPtLabelCat,norm_ratio)
@@ -453,10 +359,18 @@ class WPeak():
                 wlnu_norm_data = self._lW.arg("number_wlnu_data_"+pPtLabelCat)
                 norm_ratio_data = r.RooRealVar("norm_ratio_data_"+pPtLabelCat,"norm_ratio_data_"+pPtLabelCat,norm_ratio)
 
+                # define normalization
+                # for pass:
+                #  tt_realW = eff*tt_realW_mc
+                #  tt_fakeW = ratio * (st_mc+wlnu_mc) - tt_realW_mc =  ratio * (st_mc+wlnu_mc) - eff*tt_realW_mc
+                # for fail:
+                #  tt realW = (1-eff)*tt_realW_mc
+                #  tt_fakeW = ratio * (st_mc+wlnu_mc) - tt_realW_mc =  ratio * (st_mc+wlnu_mc) - eff*tt_realW_mc 
+                # need to define everything twice 1.for mc model, 2.for data model
                 if Cat_it == "pass":
                     print "defining realW"
                     tt_realW_total_mc = r.RooRealVar("numbertotal_tt_realW_mc_%s"%pPtLabel,"numbertotal_tt_realW_mc_%s"%pPtLabel,500,0.,1e7);
-                    tt_realW_eff_mc = r.RooRealVar("eff_tt_realW_mc_%s"%pPtLabel,"eff_tt_realW_mc_%s"%pPtLabel,effS,effS*0.8,effS*1.2);  
+                    tt_realW_eff_mc = r.RooRealVar("eff_tt_realW_mc_%s"%pPtLabel,"eff_tt_realW_mc_%s"%pPtLabel,effS,effS*0.8,effS*1.2);
                     tt_realW_norm_mc = r.RooFormulaVar("number_tt_realW_mc_%s"%(pPtLabelCat), "@0*@1", r.RooArgList(tt_realW_eff_mc,tt_realW_total_mc));
                     tt_fakeW_norm_mc = r.RooFormulaVar("tt_fakeW_norm_mc_"+pPtLabelCat,"(@0*(@1+@2)-(@3*@4))",r.RooArgList(norm_ratio_mc,wlnu_norm_mc,st_norm_mc,tt_realW_eff_mc,tt_realW_total_mc))
 
@@ -477,17 +391,11 @@ class WPeak():
                     tt_realW_eff_data = self._lW.var("eff_tt_realW_data_%s"%pPtLabel)
                     tt_realW_norm_data = r.RooFormulaVar("number_tt_realW_data_%s"%(pPtLabelCat), "(1-@0)*@1", r.RooArgList(tt_realW_eff_data,tt_realW_total_data));
                     tt_fakeW_norm_data = r.RooFormulaVar("tt_fakeW_norm_data_"+pPtLabelCat,"(@0*(@1+@2)-((1-@3)*@4))",r.RooArgList(norm_ratio_data,wlnu_norm_data,st_norm_data,tt_realW_eff_data,tt_realW_total_data))
-                '''
-                for iLabel in ['tt_signal_mc','tt_signal_data']:
-                    lLabel = iLabel + '_' + pPtLabelCat
-                    lModelPdf,lConstraints = makePdf(self._lW,fVar,lLabel,fPDFs[iLabel])
-                    getattr(self._lW,"import")(lModelPdf,r.RooFit.RecycleConflictNodes())
-                    '''
-                # tt = ratio *bkg = tt_realW + fakeW
-                # tt_realW_pass/fail = eff*(tt_realW) 
-                # tt_fakeW = ratio *bkg - tt_realW
-                # to mc
 
+                # tt = ratio *bkg = tt_realW + fakeW                                                                                                                                                          
+                # tt_realW_pass/fail = eff*(tt_realW)                                                                                                                                                          
+                # tt_fakeW = ratio *bkg - tt_realW                                                                                                                                                             
+                # to mc 
                 tt_realW_model_mc_ext = r.RooExtendPdf("ext_model_mc_total_tt_realW_"+pPtLabelCat,"ext_model_mc_total_tt_realW_"+pPtLabelCat,self._lW.pdf("model_pdf_tt_realW_mc_"+pPtLabelCat),tt_realW_norm_mc)
                 tt_fakeW_model_mc_ext = r.RooExtendPdf("ext_model_mc_total_tt_fakeW_"+pPtLabelCat,"ext_model_mc_total_tt_fakeW_"+pPtLabelCat,self._lW.pdf("model_pdf_tt_fakeW_mc_"+pPtLabelCat),tt_fakeW_norm_mc)
                 st_model_mc_ext   = r.RooExtendPdf("ext_model_mc_total_st_"+pPtLabelCat,"ext_model_mc_total_st_"+pPtLabelCat,self._lW.pdf("model_pdf_st_mc_"+pPtLabelCat),st_norm_mc)
