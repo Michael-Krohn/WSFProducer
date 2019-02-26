@@ -25,9 +25,9 @@ fFiles = {'data': 'Data',
           'wlnu_data': 'WJets',
           'st_mc':   'ST',
           'st_data':   'ST',
-          'tt_fakeW_mc': 'TT',
+#          'tt_fakeW_mc': 'TT',
           'tt_realW_mc': 'TT',
-          'tt_fakeW_data': 'TT',
+#          'tt_fakeW_data': 'TT',
           'tt_realW_data': 'TT',
           "tt_signal_mc": 'TT',
           "tt_signal_data": 'TT',
@@ -42,14 +42,14 @@ fPDFs = {
          'wlnu_data':     'Exp_data',
          'st_mc':         'ErfExpGaus_st_mc',
          'st_data':       'ErfExpGaus_st_data',
-         'tt_fakeW_mc':   'ErfExp_tt_mc',
+#         'tt_fakeW_mc':   'ErfExp_tt_mc',
          'tt_realW_mc':   'DoubleCB',
-         'tt_fakeW_data': 'ErfExp_tt_data',
+#         'tt_fakeW_data': 'ErfExp_tt_data',
          'tt_realW_data': 'DoubleCB'}
 fPDFs['tt_signal_mc'] = fPDFs['tt_realW_mc']
 fPDFs['tt_signal_data'] = fPDFs['tt_realW_data']
-fPDFs['tt_bkg_mc'] = fPDFs['tt_fakeW_mc']
-fPDFs['tt_bkg_data'] = fPDFs['tt_fakeW_data']
+#fPDFs['tt_bkg_mc'] = fPDFs['tt_fakeW_mc']
+#fPDFs['tt_bkg_data'] = fPDFs['tt_fakeW_data']
 
 # floating params
 fFloating = {}
@@ -186,8 +186,11 @@ class WPeak():
             jhadronic = getattr(lTree,"Puppijet0_isHadronicV");
             if jhadronic == 1.0 and jmatched < 0.8 and jmatched > 0.:
                 lMatched = 1;
-            if 'realW' in iLabel and lMatched == 0: continue
-            if 'fakeW' in iLabel and lMatched == 1: continue
+#####################################################
+### REMOVED until we have GEN lepton info in bits ###
+#####################################################
+#            if 'realW' in iLabel and lMatched == 0: continue
+#            if 'fakeW' in iLabel and lMatched == 1: continue
             if lMass < self._lMSD_hi and lMass > self._lMSD_lo:
                 self._lMSD.setVal(lMass)
                 lData.add(r.RooArgSet(self._lMSD), lWeight)
